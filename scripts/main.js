@@ -26,27 +26,43 @@ export const handleEffects = (roll, isPublic = true) => {
    const shouldPlay =
       isPublic ||
       !game.settings.get(constants.modName, "trigger-on-public-only");
-   const shouldBroadcastToOtherPlayers = isPublic;
-   const summarizedDieRolls = getSummarizedDieRolls(roll);
-   const isCrit = determineIfCrit(summarizedDieRolls);
-   const isFumble = determineIfFumble(summarizedDieRolls);
+    const shouldBroadcastToOtherPlayers = isPublic;
+    const summarizedDieRolls = getSummarizedDieRolls(roll);
+    //const isCrit = determineIfCrit(summarizedDieRolls);
+    //const isFumble = determineIfFumble(summarizedDieRolls);
+    const numberOfCrits     = howManyCrit(summarizedDieRolls);
+    const numberOfFumble    = howManyFumble(summarizedDieRolls);
 
-   if (isFumble) {
+
+    if (numberOfFumble > numberOfCrits) {
       roll = foundry.utils.mergeObject(roll, {
          soundEffect: soundEffectController.getFumbleSoundEffect(),
       });
    }
 
-   if (isCrit) {
+    if (numberOfCrits > numberOfFumble) {
       roll = foundry.utils.mergeObject(roll, {
          soundEffect: soundEffectController.getCritSoundEffect(),
       });
-   }
+    }
 
-   shouldPlay && isCrit && handleConfetti(shouldBroadcastToOtherPlayers);
-   shouldPlay &&
-      game.settings.get(constants.modName, "add-sound") &&
-      playSound(roll, shouldBroadcastToOtherPlayers);
+/*    if (isCrit && isFumble) {
+        if (numberOfCrits > numberOfFumble) {
+            roll = foundry.utils.mergeObject(roll, {
+                soundEffect: soundEffectController.getCritSoundEffect(),
+            });
+        }
+        if (numberOfCrits < numberOfFumble) {
+            roll = foundry.utils.mergeObject(roll, {
+                soundEffect: soundEffectController.getFumbleSoundEffect(),
+            });
+        }
+    }*/
+
+    shouldPlay && (numberOfCrits > numberOfFumble) && handleConfetti(shouldBroadcastToOtherPlayers);
+    shouldPlay &&
+    game.settings.get(constants.modName, "add-sound") &&
+    playSound(roll, shouldBroadcastToOtherPlayers);
 };
 
 const getIsRollOverrideCrit = (roll) => {
@@ -95,11 +111,11 @@ const getSummarizedDieRolls = (rolls) => {
    return results;
 };
 
-const determineIfCrit = (summarizedDieRolls) => {
+/*const determineIfCrit = (summarizedDieRolls) => {
    return !!(
       summarizedDieRolls
-         .filter((r) => r.faces === 20)
-         .some((r) => r.result === 20) ||
+         .filter((r) => r.faces === 6)
+         .some((r) => r.result === 6) ||
       summarizedDieRolls.some((r) => r.isOverrideCrit) ||
       constants.debugMode
    );
@@ -108,10 +124,46 @@ const determineIfCrit = (summarizedDieRolls) => {
 const determineIfFumble = (summarizedDieRolls) => {
    return !!(
       summarizedDieRolls
-         .filter((r) => r.faces === 20)
+         .filter((r) => r.faces === 6)
          .some((r) => r.result === 1) ||
       summarizedDieRolls.some((r) => r.isOverrideFumble)
    );
+};*/
+
+const howManyCrit = (summarizedDieRolls) => {
+    return (
+        // --- r6 && r7 -> x1 ---
+        summarizedDieRolls
+            .filter((r) => r.faces === 6 || r.faces === 8 || r.faces === 10 || r.faces === 12).filter((r) => r.result >= 6 && r.result <8).length*1
+        +
+        // --- r8 && r9 -> x2 ---
+        summarizedDieRolls
+            .filter((r) => r.faces === 6 || r.faces === 8 || r.faces === 10 || r.faces === 12).filter((r) => r.result >= 8 && r.result < 10).length*2
+        +
+        // --- r10 && r11 -> x3 ---
+        summarizedDieRolls
+            .filter((r) => r.faces === 6 || r.faces === 8 || r.faces === 10 || r.faces === 12).filter((r) => r.result >= 10 && r.result < 12).length*3
+        +
+        // --- r12       -> x4 ---
+        summarizedDieRolls
+            .filter((r) => r.faces === 6 || r.faces === 8 || r.faces === 10 || r.faces === 12).filter((r) => r.result === 12).length*4
+    );
+};
+
+const howManyFumble = (summarizedDieRolls) => {
+    return (
+        summarizedDieRolls
+            .filter((r) => r.faces === 6).filter((r) => r.result === 1).length
+        +
+        summarizedDieRolls
+            .filter((r) => r.faces === 8).filter((r) => r.result === 1).length
+        +
+        summarizedDieRolls
+            .filter((r) => r.faces === 10).filter((r) => r.result === 1).length
+        +
+        summarizedDieRolls
+            .filter((r) => r.faces === 12).filter((r) => r.result <= 2).length
+    );
 };
 
 const playSound = (roll, broadcastSound) => {
